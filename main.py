@@ -9,7 +9,7 @@ class CowboyRideLogApp:
         self.root.title("Cowboy Ride Log App")
 
         self.create_widgets()
-        self.ride_log = []
+        self.load_existing_rides()
 
     def create_widgets(self):
         tk.Label(self.root, text="Date (YYYY-MM-DD):").grid(row=0, column=0, sticky=tk.W)
@@ -34,6 +34,16 @@ class CowboyRideLogApp:
 
         tk.Button(self.root, text="Add Ride", command=self.add_ride_entry).grid(row=5, columnspan=2)
         tk.Button(self.root, text="Generate Season Summary", command=self.generate_season_summary).grid(row=6, columnspan=2)
+
+    def load_existing_rides(self):
+        self.ride_log = []
+        try:
+            with open("cowboy_rides_log.csv", mode="r") as file:
+                reader = csv.DictReader(file)
+                for row in reader:
+                    self.ride_log.append(row)
+        except FileNotFoundError:
+            pass
 
     def add_ride_entry(self):
         date = self.date_entry.get()
@@ -85,9 +95,9 @@ class CowboyRideLogApp:
                 cowboy = cowboy.strip()
                 cowboy_days[cowboy] = cowboy_days.get(cowboy, 0) + 1
 
-        summary_message = f"Total Days Rode: {total_days_rode}\\nTotal Days Drove: {total_days_drove}\\n\\nDays Each Cowboy Rode:\\n"
+        summary_message = f"Total Days Rode: {total_days_rode}\nTotal Days Drove: {total_days_drove}\n\nDays Each Cowboy Rode:\n"
         for cowboy, days in cowboy_days.items():
-            summary_message += f"{cowboy}: {days} days\\n"
+            summary_message += f"{cowboy}: {days} days\n"
 
         messagebox.showinfo("Season Summary", summary_message)
 
