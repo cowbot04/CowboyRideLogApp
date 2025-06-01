@@ -1,5 +1,6 @@
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, ttk
+from tkcalendar import DateEntry
 import csv
 from datetime import datetime
 
@@ -12,8 +13,8 @@ class CowboyRideLogApp:
         self.load_existing_rides()
 
     def create_widgets(self):
-        tk.Label(self.root, text="Date (YYYY-MM-DD):").grid(row=0, column=0, sticky=tk.W)
-        self.date_entry = tk.Entry(self.root)
+        tk.Label(self.root, text="Date:").grid(row=0, column=0, sticky=tk.W)
+        self.date_entry = DateEntry(self.root, date_pattern='yyyy-mm-dd')
         self.date_entry.grid(row=0, column=1)
 
         tk.Label(self.root, text="Cowboys (comma-separated):").grid(row=1, column=0, sticky=tk.W)
@@ -35,6 +36,14 @@ class CowboyRideLogApp:
         tk.Button(self.root, text="Add Ride", command=self.add_ride_entry).grid(row=5, columnspan=2)
         tk.Button(self.root, text="Generate Season Summary", command=self.generate_season_summary).grid(row=6, columnspan=2)
 
+        tk.Label(self.root, text="Edit Ride by Date:").grid(row=7, column=0, sticky=tk.W)
+        self.date_dropdown = ttk.Combobox(self.root, state="readonly")
+        self.date_dropdown.grid(row=7, column=1)
+        self.date_dropdown.bind("<<ComboboxSelected>>", self.populate_form_for_edit)
+
+        tk.Button(self.root, text="Save Changes", command=self.save_changes).grid(row=8, columnspan=2)
+        tk.Button(self.root, text="Delete Ride", command=self.delete_ride).grid(row=9, columnspan=2)
+
     def load_existing_rides(self):
         self.ride_log = []
         try:
@@ -42,8 +51,28 @@ class CowboyRideLogApp:
                 reader = csv.DictReader(file)
                 for row in reader:
                     self.ride_log.append(row)
+            self.update_date_dropdown()
         except FileNotFoundError:
             pass
+
+    def update_date_dropdown(self):
+        dates = [ride["Date"] for ride in self.ride_log]
+        self.date_dropdown['values'] = dates
+
+    def populate_form_for_edit(self, event):
+        selected_date = self.date_dropdown.get()
+        for ride in self.ride_log:
+            if ride["Date"] == selected_date:
+                self.date_entry.set_date(ride["Date"])
+                self.cowboys_entry.delete(0, tk.END)
+                self.cowboys_entry.insert(0, ride["Cowboys"])
+                self.from_entry.delete(0, tk.END)
+                self.from_entry.insert(0, ride["From"])
+                self.to_entry.delete(0, tk.END)
+                self.to_entry.insert(0, ride["To"])
+                self.drove_entry.delete(0, tk.END)
+                self.drove_entry.insert(0, ride["Drove to Start"])
+                break
 
     def add_ride_entry(self):
         date = self.date_entry.get()
@@ -51,12 +80,6 @@ class CowboyRideLogApp:
         from_location = self.from_entry.get()
         to_location = self.to_entry.get()
         drove_to_start = self.drove_entry.get()
-
-        try:
-            datetime.strptime(date, "%Y-%m-%d")
-        except ValueError:
-            messagebox.showerror("Invalid Date", "Please enter a valid date in YYYY-MM-DD format.")
-            return
 
         num_cowboys = len(cowboys.split(","))
         self.ride_log.append({
@@ -69,14 +92,55 @@ class CowboyRideLogApp:
         })
 
         self.save_to_csv()
+        self.update_date_dropdown()
 
-        self.date_entry.delete(0, tk.END)
+        self.date_entry.set_date(datetime.now())
         self.cowboys_entry.delete(0, tk.END)
         self.from_entry.delete(0, tk.END)
         self.to_entry.delete(0, tk.END)
         self.drove_entry.delete(0, tk.END)
 
         messagebox.showinfo("Ride Added", "Ride entry added successfully!")
+
+    def save_changes(self):
+        selected_date = self.date_dropdown.get()
+        for ride in self.ride_log:
+            if ride["Date"] == selected_date:
+                ride["Date"] = self.date_entry.get()
+                ride["Cowboys"] = self.cowboys_entry.get()
+                ride["Number of Cowboys"] = len(self.cowboys_entry.get().split(","))
+                ride["From"] = self.from_entry.get()
+                ride["To"] = self.to_entry.get()
+                ride["Drove to Start"] = self.drove_entry.get()
+                break
+
+        self.save_to_csv()
+        self.update_date_dropdown()
+
+        messagebox.showinfo("Changes Saved", "Ride entry updated successfully!")
+
+    def delete_ride(self):
+        selected_date = self.date_dropdown.get()
+        if not selected_date:
+            messagebox.showwarning("No Selection", "Please select a ride date to delete.")
+            return
+
+        confirm = messagebox.askyesno("Confirm Deletion", f"Are you sure you want to delete the ride on {selected_date}?")
+        if not confirm:
+            return
+
+        self.ride_log = [ride for ride in self.ride_log if ride["Date"] != selected_date]
+
+        self.save_to_csv()
+        self.update_date_dropdown()
+
+        self.date_entry.set_date(datetime.now())
+        self.cowboys_entry.delete(0, tk.END)
+        self.from_entry.delete(0, tk.END)
+        self.to_entry.delete(0, tk.END)
+        self.drove_entry.delete(0, tk.END)
+
+        messagebox.showinfo("Ride Deleted", "Ride entry deleted successfully!")
 
     def save_to_csv(self):
         with open("cowboy_rides_log.csv", mode="w", newline="") as file:
